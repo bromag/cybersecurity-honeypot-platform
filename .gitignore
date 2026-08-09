@@ -1,0 +1,27 @@
+# Local environment overrides
+.env
+.env.*
+!.env.example
+
+# Vagrant machine state
+.vagrant/
+**/.vagrant/
+
+# Runtime and persistent data
+log/
+logs/
+cowrie/var/
+cowrie/data/
+grafana/data/
+loki/data/
+promtail/data/
+*.log
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+

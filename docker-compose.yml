@@ -1,0 +1,73 @@
+name: ${COMPOSE_PROJECT_NAME:-honeypot}
+
+# This docker-compose.yml file defines a multi-container application that includes the following services:
+# 1. Cowrie: A honeypot service that simulates an SSH and Telnet server to capture and log malicious activity.
+# 2. Loki: A log aggregation system that collects and stores logs from various sources, including Cowrie.
+# 3. Promtail: A log shipping agent that reads logs from Cowrie and sends them to Loki.
+# 4. Grafana: A visualization and analytics platform that provides a web interface to query and visualize logs stored in Loki
+services:
+  cowrie:
+    build:
+      context: ./cowrie
+    restart: unless-stopped
+    ports:
+      - "2222:2222"
+    volumes:
+      - cowrie-data:/cowrie/cowrie-git/var
+    networks:
+      - backend
+
+# Loki service configuration
+  loki:
+    image: grafana/loki:3.6.11
+    restart: unless-stopped
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    networks:
+      - backend
+
+# Promtail service configuration
+  promtail:
+    image: grafana/promtail:3.6.11
+    restart: unless-stopped
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - cowrie
+      - loki
+    volumes:
+      - ./promtail/config.yml:/etc/promtail/config.yml:ro
+      - cowrie-data:/var/lib/cowrie:ro
+      - promtail-data:/var/lib/promtail
+    networks:
+      - backend
+
+# Grafana service configuration
+  grafana:
+    image: grafana/grafana:13.1.0
+    restart: unless-stopped
+    depends_on:
+      - loki
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - backend
+
+networks:
+  backend:
+
+volumes:
+  cowrie-data:
+  grafana-data:
+  loki-data:
+  promtail-data:

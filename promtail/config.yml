@@ -1,0 +1,36 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /var/lib/promtail/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+# The scrape configuration for Promtail.
+scrape_configs:
+  - job_name: cowrie
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: cowrie
+          service: honeypot
+          __path__: /var/lib/cowrie/log/cowrie/*.json
+    pipeline_stages:
+      - json:
+          expressions:
+            eventid:
+            input:
+            message:
+            password:
+            src_ip:
+            timestamp:
+            username:
+      - timestamp:
+          source: timestamp
+          format: RFC3339Nano
+      - labels:
+          eventid:
+
