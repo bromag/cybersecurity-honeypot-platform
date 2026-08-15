@@ -1,6 +1,6 @@
 # Local environment overrides
-.env
-.env.*
+!.env
+!.env.*
 !.env.example
 
 # Vagrant machine state
