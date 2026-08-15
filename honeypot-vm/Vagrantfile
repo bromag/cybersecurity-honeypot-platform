@@ -9,7 +9,6 @@ Vagrant.configure("2") do |config|
   config.vm.box = "bento/ubuntu-24.04"
   config.vm.hostname = "honeypot-server"
 
-  config.vm.network "private_network", ip: "192.168.56.10"
   config.vm.network "forwarded_port", guest: 2222, host: 2222
   config.vm.network "forwarded_port", guest: 3000, host: 3000
   config.vm.network "forwarded_port", guest: 3100, host: 3100
@@ -23,8 +22,12 @@ Vagrant.configure("2") do |config|
     vb.memory = 4096
     vb.cpus = 2
 
+    # Network for VirtualBox
+    override.vm.network "private_network", ip: "192.168.57.10"
+
+
     # VirtualBox provides a live, bidirectional shared folder.
-    override.vm.synced_folder project_root, "/project",
+    config.vm.synced_folder project_root, "/project",
       type: "virtualbox",
       owner: "vagrant",
       group: "vagrant"
@@ -33,6 +36,9 @@ Vagrant.configure("2") do |config|
   config.vm.provider "parallels" do |prl, override|
     prl.memory = 4096
     prl.cpus = 2
+
+    # Network for Parallels
+    override.vm.network "private_network", ip: "192.168.56.10"
 
     # The current ARM Bento box cannot restore custom prl_fs shares after a
     # reboot. RSync is one-way but reliable and refreshes on every vagrant up.
