@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" agent="Codex" version="26.0.9">
+  <diagram id="phase-1-architektur" name="Phase 1 – Modularbeit">
+    <mxGraphModel dx="1200" dy="500" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="500" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="vm" value="Ubuntu Vagrant VM" style="swimlane;html=1;rounded=0;startSize=34;horizontal=1;fillColor=#F8FAFC;strokeColor=#64748B;strokeWidth=2;fontSize=17;fontColor=#334155;dashed=1;dashPattern=8 4;" vertex="1" parent="1">
+          <mxGeometry x="455" y="100" width="670" height="200" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="client" value="&lt;b&gt;SSH-Client&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;Angreifer / Testsystem&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2FE;strokeColor=#0284C7;strokeWidth=2;fontSize=18;fontColor=#0C4A6E;" vertex="1" parent="1">
+          <mxGeometry x="30" y="165" width="235" height="85" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="cowrie" value="&lt;b&gt;Cowrie&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;SSH-Honeypot&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEE2E2;strokeColor=#EF4444;strokeWidth=2;fontSize=18;fontColor=#7F1D1D;" vertex="1" parent="vm">
+          <mxGeometry x="45" y="65" width="175" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="json" value="&lt;b&gt;JSON-Log&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;Strukturierte Ereignisse&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF3C7;strokeColor=#D97706;strokeWidth=2;fontSize=18;fontColor=#78350F;" vertex="1" parent="vm">
+          <mxGeometry x="380" y="65" width="245" height="75" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="edge-client-cowrie" value="SSH / TCP :2222" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#64748B;fontSize=16;fontColor=#334155;labelBackgroundColor=#F8FAFC;" edge="1" parent="1" source="client" target="cowrie">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="edge-cowrie-json" value="schreibt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;strokeWidth=2;strokeColor=#64748B;fontSize=16;fontColor=#475569;labelBackgroundColor=#F8FAFC;" edge="1" parent="vm" source="cowrie" target="json">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
