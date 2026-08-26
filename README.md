@@ -69,6 +69,20 @@ Alle Komponenten laufen als Docker-Container innerhalb derselben von Vagrant ver
 | **Vagrant** | Erstellt und provisioniert die Ubuntu-VM, inklusive Portweiterleitungen zum Hostsystem. |
 | **Docker Compose** | Erstellt, startet und verwaltet die Container der Plattform. |
 
+## Wieso diese Technologieauswahl
+
+Die Technologien wurden so gewählt, dass sich die Laborumgebung reproduzierbar aufbauen und später schrittweise erweitern lässt. In der folgende Tabelle stelle ich zu jeder eingesetzten Technologie eine mögliche Alternative gegenüber:
+
+| Verwendete Technologie | Mögliche Alternative | Begründung der Auswahl |
+| --- | --- | --- |
+| **Cowrie** | OpenCanary | Cowrie ist speziell für interaktive SSH-Sitzungen geeignet und protokolliert Login-Versuche sowie eingegebene Befehle strukturiert als JSON. |
+| **Promtail** | Grafana Alloy | Promtail liess sich für die vorliegende Projektversion einfach konfigurieren, liest die Cowrie-JSON-Protokolle direkt ein und übermittelt sie an Loki. |
+| **Loki** | Elasticsearch | Loki ist auf die Speicherung von Protokollen ausgerichtet, lässt sich direkt mit Grafana verbinden und benötigt für dieses kleine Labor weniger komplexe Infrastruktur. |
+| **Grafana** | Kibana | Grafana unterstützt Loki direkt und ermöglicht die benötigten Dashboards sowie LogQL-Auswertungen. |
+| **Vagrant** | VirtualBox ohne Vagrant | Vagrant automatisiert Aufbau, Konfiguration und Provisionierung der VM. Dadurch lässt sich die Umgebung reproduzierbar mit `vagrant up` starten. |
+| **Docker Compose** | Kubernetes | Docker Compose ist für vier Container auf einer einzelnen Labor-VM einfacher zu konfigurieren und zu betreiben. Kubernetes wäre für diesen Projektumfang unnötig komplex. |
+
+
 ## Voraussetzungen
 
 Für den empfohlenen Betrieb mit VirtualBox werden benötigt:
