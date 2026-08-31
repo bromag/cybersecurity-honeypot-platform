@@ -281,6 +281,7 @@ Der Scan sollte einen SSH-Dienst erkennen. Typische Cowrie-Ereignisse sind `cowr
 
 ### Login-Versuche mit Hydra
 
+Falls Hydra noch nicht lokal installiert wurde, müsste dies noch gemacht werden.
 Eine kleine Testliste erstellen und gegen Cowrie verwenden:
 
 ```bash
