@@ -8,3 +8,4 @@ datasources:
     url: http://loki:3100
     isDefault: true
     editable: false
+    

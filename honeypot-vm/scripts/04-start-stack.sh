@@ -19,4 +19,3 @@ docker compose up -d --build --remove-orphans
 docker compose ps
 
 echo "==> Grafana Credentials.."
-echo "Username: admin Password: admin12345"
